@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Search</title>
+    <link rel="stylesheet" href="/style.css">
+    <script>
+        // JavaScript to handle copying URL to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function () {
+                alert("Copied the URL: " + text);
+            }, function (err) {
+                alert("Failed to copy: " + err);
+            });
+        }
+
+        // Function to toggle channel search mode
+        function toggleChannelSearch() {
+            const channelSection = document.getElementById('channel-search-section');
+            const regularSearch = document.getElementById('regular-search');
+            const advancedSearch = document.getElementById('advanced-search-section');
+            const channelModeCheckbox = document.getElementById('channel-mode');
+            const advancedModeCheckbox = document.getElementById('advanced-mode');
+
+            if (channelModeCheckbox.checked) {
+                channelSection.style.display = 'block';
+                regularSearch.style.display = 'none';
+                advancedSearch.style.display = 'none';
+                advancedModeCheckbox.checked = false;
+            } else {
+                channelSection.style.display = 'none';
+                if (advancedModeCheckbox.checked) {
+                    advancedSearch.style.display = 'block';
+                    regularSearch.style.display = 'none';
+                } else {
+                    regularSearch.style.display = 'block';
+                }
+            }
+        }
+
+        // Function to toggle advanced search mode
+        function toggleAdvancedSearch() {
+            const channelSection = document.getElementById('channel-search-section');
+            const regularSearch = document.getElementById('regular-search');
+            const advancedSearch = document.getElementById('advanced-search-section');
+            const channelModeCheckbox = document.getElementById('channel-mode');
+            const advancedModeCheckbox = document.getElementById('advanced-mode');
+
+            if (advancedModeCheckbox.checked) {
+                advancedSearch.style.display = 'block';
+                regularSearch.style.display = 'none';
+                channelSection.style.display = 'none';
+                channelModeCheckbox.checked = false;
+            } else {
+                advancedSearch.style.display = 'none';
+                regularSearch.style.display = 'block';
+            }
+        }
+
+        // Function to open video player modal
+        function openVideoPlayer(element) {
+            const videoId = element.getAttribute('data-video-id');
+            const title = element.getAttribute('data-video-title');
+            const modal = document.getElementById('video-modal');
+            const videoFrame = document.getElementById('video-frame');
+            const videoTitle = document.getElementById('modal-video-title');
+
+            // Set the video source
+            videoFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+            videoTitle.textContent = title;
+
+            // Show the modal
+            modal.style.display = 'flex';
+
+            // Setup download link
+            const downloadBtn = document.getElementById('download-video-btn');
+            downloadBtn.setAttribute('data-video-id', videoId);
+        }
+
+        // Function to close video player modal
+        function closeVideoPlayer() {
+            const modal = document.getElementById('video-modal');
+            const videoFrame = document.getElementById('video-frame');
+
+            // Stop the video by setting the src to empty
+            videoFrame.src = '';
+
+            // Hide the modal
+            modal.style.display = 'none';
+        }
+
+        // Function to handle download
+        function downloadVideo() {
+            const videoId = document.getElementById('download-video-btn').getAttribute('data-video-id');
+            // Redirect to a download service. Using y2mate as an example
+            const downloadUrl = `https://www.y2mate.com/youtube/${videoId}`;
+            window.open(downloadUrl, '_blank');
+        }
+    </script>
+</head>
+
+<body>
+    <h1>YouTube Video Search</h1>
+
+    <div class="search-options">
+        <div class="option">
+            <label>
+                <input type="checkbox" id="channel-mode" onchange="toggleChannelSearch()">
+                Search within a specific channel
+            </label>
+        </div>
+        <div class="option">
+            <label>
+                <input type="checkbox" id="advanced-mode" onchange="toggleAdvancedSearch()">
+                Advanced search options
+            </label>
+        </div>
+    </div>
+
+    <div id="regular-search">
+        <form action="/search" method="GET">
+            <input type="text" name="q" placeholder="Search for videos or channels..." value="<%= query %>">
+            <button type="submit">Search</button>
+        </form>
+    </div>
+
+    <div id="advanced-search-section" style="display: none;">
+        <form action="/advanced-search" method="GET">
+            <div class="advanced-search-row">
+                <input type="text" name="title" placeholder="Search by title..." value="<%= locals.title || '' %>">
+            </div>
+            <div class="advanced-search-options">
+                <div class="search-filter">
+                    <label>Sort by:</label>
+                    <select name="order">
+                        <option value="date" <%=locals.order==='date' ? 'selected' : '' %>>Latest first</option>
+                        <option value="viewCount" <%=locals.order==='viewCount' ? 'selected' : '' %>>Most viewed
+                        </option>
+                        <option value="relevance" <%=locals.order==='relevance' ? 'selected' : '' %>>Relevance</option>
+                    </select>
+                </div>
+                <div class="search-filter">
+                    <label>Max results:</label>
+                    <select name="maxResults">
+                        <option value="10" <%=locals.maxResults==='10' ? 'selected' : '' %>>10</option>
+                        <option value="20" <%=locals.maxResults==='20' ? 'selected' : '' %>>20</option>
+                        <option value="30" <%=locals.maxResults==='30' ? 'selected' : '' %>>30</option>
+                        <option value="50" <%=locals.maxResults==='50' ? 'selected' : '' %>>50</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="advanced-search-btn">Search</button>
+        </form>
+    </div>
+
+    <div id="channel-search-section" style="display: none;">
+        <div class="channel-search">
+            <form action="/search-channel" method="GET">
+                <input type="text" name="channelQuery" placeholder="Search for a channel...">
+                <button type="submit">Find Channel</button>
+            </form>
+        </div>
+
+        <% if (locals.channels && channels.length> 0) { %>
+            <div class="channel-results">
+                <h3>Select a Channel:</h3>
+                <ul class="channel-list">
+                    <% channels.forEach(channel=> { %>
+                        <li>
+                            <div class="channel-item">
+                                <img src="<%= channel.thumbnail %>" alt="<%= channel.title %> thumbnail">
+                                <div class="channel-info">
+                                    <h4>
+                                        <%= channel.title %>
+                                    </h4>
+                                    <form action="/search" method="GET">
+                                        <input type="hidden" name="channelId" value="<%= channel.id %>">
+                                        <input type="text" name="q" placeholder="Search within this channel...">
+                                        <button type="submit">Search</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </li>
+                        <% }); %>
+                </ul>
+            </div>
+            <% } %>
+    </div>
+
+    <% if (locals.searchType) { %>
+        <div class="search-info">
+            <p>
+                <% if (locals.searchType==='title' ) { %>
+                    Showing results for title: <strong>
+                        <%= locals.title %>
+                    </strong>
+                    <% } else if (locals.searchType==='channel' ) { %>
+                        Showing results from channel: <strong>
+                            <%= locals.channelTitle %>
+                        </strong>
+                        <% } %>
+            </p>
+        </div>
+        <% } %>
+
+            <% if (videos.length> 0) { %>
+                <h2>Search Results</h2>
+                <ul id="video-list">
+                    <% videos.forEach(video=> { %>
+                        <li>
+                            <img src="<%= video.thumbnail %>" alt="<%= video.title %> thumbnail"
+                                class="video-thumbnail">
+                            <div class="video-info">
+                                <a href="javascript:void(0);" data-video-id="<%= video.id %>"
+                                    data-video-title="<%= video.title %>" onclick="openVideoPlayer(this)">
+                                    <%= video.title %>
+                                </a>
+                                <p>
+                                    <%= video.description %>
+                                </p>
+                                <div class="video-actions">
+                                    <button class="action-btn copy-btn"
+                                        onclick="copyToClipboard('<%= video.url %>')">Copy Link</button>
+                                    <button class="action-btn play-btn" data-video-id="<%= video.id %>"
+                                        data-video-title="<%= video.title %>" onclick="openVideoPlayer(this)">Play
+                                        Video</button>
+                                </div>
+                            </div>
+                        </li>
+                        <% }); %>
+                </ul>
+
+                <% if (nextPageToken) { %>
+                    <form id="loadMoreForm"
+                        action="<%= locals.searchType === 'title' ? '/advanced-search' : '/search' %>" method="GET">
+                        <% if (locals.searchType==='title' ) { %>
+                            <input type="hidden" name="title" value="<%= locals.title %>">
+                            <input type="hidden" name="order" value="<%= locals.order %>">
+                            <input type="hidden" name="maxResults" value="<%= locals.maxResults %>">
+                            <% } else { %>
+                                <input type="hidden" name="q" value="<%= query %>">
+                                <% if (locals.selectedChannelId) { %>
+                                    <input type="hidden" name="channelId" value="<%= selectedChannelId %>">
+                                    <% } %>
+                                        <% } %>
+                                            <input type="hidden" name="pageToken" value="<%= nextPageToken %>">
+                                            <button type="submit">Load More</button>
+                    </form>
+                    <% } %>
+                        <% } else if (query || locals.title) { %>
+                            <p>No videos found. Try searching for a different topic or channel.</p>
+                            <% } %>
+
+                                <!-- Video Player Modal -->
+                                <div id="video-modal" class="modal">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h3 id="modal-video-title"></h3>
+                                            <span class="close" onclick="closeVideoPlayer()">&times;</span>
+                                        </div>
+                                        <div class="video-container">
+                                            <iframe id="video-frame" width="100%" height="100%" frameborder="0"
+                                                allowfullscreen></iframe>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button id="download-video-btn" class="download-btn"
+                                                onclick="downloadVideo()">Download Video</button>
+                                        </div>
+                                    </div>
+                                </div>
+</body>
+
+</html>
