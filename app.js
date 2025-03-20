@@ -2,15 +2,18 @@ const express = require('express');
 const axios = require('axios');
 require('dotenv').config();
 const app = express();
+const path = require('path');
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
 
 // Set EJS as the template engine
 app.set('view engine', 'ejs');
+// Set the views directory explicitly
+app.set('views', path.join(__dirname, 'Views'));
 
 // Serve static files
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'Public')));
 
 // Home Route
 app.get('/', (req, res) => {
