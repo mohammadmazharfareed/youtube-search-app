@@ -3,9 +3,19 @@ const axios = require('axios');
 require('dotenv').config();
 const app = express();
 const path = require('path');
+const YTDlpWrap = require('yt-dlp-wrap').default;
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+
+// Set ffmpeg path
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+
+// Initialize yt-dlp
+const ytDlp = new YTDlpWrap();
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
+
 
 // Set EJS as the template engine
 app.set('view engine', 'ejs');
@@ -29,6 +39,7 @@ app.get('/search-channel', async (req, res) => {
     }
 
     try {
+        // First, search for the channel
         const channelResponse = await axios.get(`${YOUTUBE_API_URL}/search`, {
             params: {
                 part: 'snippet',
@@ -45,6 +56,72 @@ app.get('/search-channel', async (req, res) => {
             description: channel.snippet.description,
             thumbnail: channel.snippet.thumbnails.default.url
         }));
+
+        // If we found channels, get the latest videos from the first channel
+        if (channels.length > 0) {
+            const channelId = channels[0].id;
+
+            // First, get the channel's uploads playlist ID
+            const channelDetailsResponse = await axios.get(`${YOUTUBE_API_URL}/channels`, {
+                params: {
+                    part: 'contentDetails',
+                    id: channelId,
+                    key: YOUTUBE_API_KEY
+                }
+            });
+
+            if (channelDetailsResponse.data.items && channelDetailsResponse.data.items[0]) {
+                const uploadsPlaylistId = channelDetailsResponse.data.items[0].contentDetails.relatedPlaylists.uploads;
+
+                // Now get the latest videos from the uploads playlist
+                const videosResponse = await axios.get(`${YOUTUBE_API_URL}/playlistItems`, {
+                    params: {
+                        part: 'snippet',
+                        playlistId: uploadsPlaylistId,
+                        maxResults: 50, // Get more videos to ensure we have enough recent ones
+                        order: 'date',
+                        key: YOUTUBE_API_KEY
+                    }
+                });
+
+                // Get all videos and sort them by date
+                let videos = (videosResponse.data.items || []).map(video => ({
+                    id: video.snippet.resourceId.videoId,
+                    title: video.snippet.title,
+                    description: video.snippet.description,
+                    url: `https://www.youtube.com/watch?v=${video.snippet.resourceId.videoId}`,
+                    thumbnail: video.snippet.thumbnails.default.url,
+                    publishedAt: new Date(video.snippet.publishedAt)
+                }));
+
+                // Sort videos by date in descending order (newest first)
+                videos.sort((a, b) => b.publishedAt - a.publishedAt);
+
+                // Take only the 10 most recent videos
+                videos = videos.slice(0, 10);
+
+                // Format the date for display
+                videos = videos.map(video => ({
+                    ...video,
+                    publishedAt: video.publishedAt.toISOString(),
+                    formattedDate: video.publishedAt.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    })
+                }));
+
+                return res.render('index', {
+                    videos,
+                    channels,
+                    nextPageToken: videosResponse.data.nextPageToken || null,
+                    query: '',
+                    selectedChannelId: channelId,
+                    channelTitle: channels[0].title,
+                    searchType: 'channel'
+                });
+            }
+        }
 
         res.render('index', { videos: [], channels, nextPageToken: null, query: '' });
     } catch (error) {
@@ -255,7 +332,81 @@ app.get('/search', async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching YouTube data:', error.message);
-        res.render('index', { videos: [], nextPageToken: null, query: searchQuery });
+        if (error.response) {
+            console.error('API error status:', error.response.status);
+            console.error('API error data:', JSON.stringify(error.response.data));
+        }
+        res.render('index', { videos: [], nextPageToken: null, query: searchQuery, error: error.message });
+    }
+});
+
+// Download Route
+app.get('/download', async (req, res) => {
+    const videoId = req.query.videoId;
+    const format = req.query.format;
+    const quality = req.query.quality;
+
+    if (!videoId || !format) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    try {
+        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+        // Get video info first
+        const info = await ytDlp.getVideoInfo(videoUrl);
+        const videoTitle = info.title.replace(/[^\x00-\x7F]/g, "");
+
+        if (format === 'mp3') {
+            res.header('Content-Disposition', `attachment; filename="${videoTitle}.mp3"`);
+
+            const stream = await ytDlp.exec(videoUrl, {
+                extractAudio: true,
+                audioFormat: 'mp3',
+                audioQuality: 0, // Best quality
+                noCheckCertificate: true,
+                noWarnings: true,
+                preferFreeFormats: true
+            });
+
+            stream.stdout.pipe(res);
+
+            stream.on('error', (err) => {
+                console.error('MP3 download error:', err);
+                if (!res.headersSent) {
+                    res.status(500).json({ error: 'Error downloading MP3' });
+                }
+            });
+
+        } else if (format === 'mp4') {
+            res.header('Content-Disposition', `attachment; filename="${videoTitle}.mp4"`);
+
+            const stream = await ytDlp.exec(videoUrl, {
+                format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                noCheckCertificate: true,
+                noWarnings: true,
+                preferFreeFormats: true
+            });
+
+            stream.stdout.pipe(res);
+
+            stream.on('error', (err) => {
+                console.error('MP4 download error:', err);
+                if (!res.headersSent) {
+                    res.status(500).json({ error: 'Error downloading MP4' });
+                }
+            });
+        } else {
+            res.status(400).json({ error: 'Invalid format specified' });
+        }
+    } catch (error) {
+        console.error('Download error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({
+                error: 'Error downloading video',
+                details: error.message
+            });
+        }
     }
 });
 
