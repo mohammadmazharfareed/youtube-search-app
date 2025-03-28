@@ -10,21 +10,31 @@ A web application that allows users to search YouTube videos with advanced featu
 - Video player modal
 - Responsive design
 
-## Deployment Instructions
+## Deployment Instructions (Free, No Credit Card Required)
 
-1. Create a free account on [Render.com](https://render.com)
-2. Create a new Web Service
-3. Connect your GitHub repository
-4. Configure the following settings:
-   - Name: youtube-search-app (or your preferred name)
-   - Environment: Node
-   - Build Command: `npm install`
-   - Start Command: `npm start`
-   - Plan: Free
+### Option 1: Deploy to Glitch.com
+1. Go to [Glitch.com](https://glitch.com/) and sign up for a free account
+2. Click "New Project" and select "Import from GitHub"
+3. Enter your GitHub repository URL: `https://github.com/mohammadmazharfareed/youtube-search-app.git`
+4. Once imported, go to the .env file and add your YouTube API key:
+   ```
+   YOUTUBE_API_KEY=your_youtube_api_key_here
+   ```
+5. Your app will be automatically deployed and available at a unique URL (like https://your-project-name.glitch.me)
+
+### Option 2: Deploy to Replit
+1. Go to [Replit.com](https://replit.com/) and sign up for a free account
+2. Click "Create" and select "Import from GitHub"
+3. Enter your GitHub repository URL
+4. For the "Language" select "Node.js"
+5. Add your YouTube API key in the Secrets (Environment variables) section:
+   - Key: `YOUTUBE_API_KEY`
+   - Value: Your actual YouTube API key
+6. Click "Run" to deploy your application
 
 ## Environment Variables
 
-The following environment variables need to be set in your Render dashboard:
+The following environment variables need to be set:
 
 - `YOUTUBE_API_KEY`: Your YouTube Data API key
 

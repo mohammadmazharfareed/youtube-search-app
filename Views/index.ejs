@@ -94,9 +94,38 @@
         // Function to handle download
         function downloadVideo() {
             const videoId = document.getElementById('download-video-btn').getAttribute('data-video-id');
-            // Redirect to a download service. Using y2mate as an example
-            const downloadUrl = `https://www.y2mate.com/youtube/${videoId}`;
-            window.open(downloadUrl, '_blank');
+            const format = document.getElementById('download-format').value;
+            const quality = document.getElementById('download-quality').value;
+
+            // Show loading state
+            const downloadBtn = document.getElementById('download-video-btn');
+            const originalText = downloadBtn.textContent;
+            downloadBtn.textContent = 'Downloading...';
+            downloadBtn.disabled = true;
+
+            // Start download
+            window.location.href = `/download?videoId=${videoId}&format=${format}&quality=${quality}`;
+
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                downloadBtn.textContent = originalText;
+                downloadBtn.disabled = false;
+            }, 3000);
+        }
+
+        // Function to toggle quality options based on format
+        function toggleQualityOptions() {
+            const format = document.getElementById('download-format').value;
+            const qualitySelect = document.getElementById('download-quality');
+            const qualityLabel = document.getElementById('quality-label');
+
+            if (format === 'mp3') {
+                qualitySelect.style.display = 'none';
+                qualityLabel.style.display = 'none';
+            } else {
+                qualitySelect.style.display = 'block';
+                qualityLabel.style.display = 'block';
+            }
         }
     </script>
 </head>
@@ -256,17 +285,39 @@
                                 <!-- Video Player Modal -->
                                 <div id="video-modal" class="modal">
                                     <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h3 id="modal-video-title"></h3>
-                                            <span class="close" onclick="closeVideoPlayer()">&times;</span>
-                                        </div>
-                                        <div class="video-container">
-                                            <iframe id="video-frame" width="100%" height="100%" frameborder="0"
-                                                allowfullscreen></iframe>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button id="download-video-btn" class="download-btn"
-                                                onclick="downloadVideo()">Download Video</button>
+                                        <span class="close" onclick="closeVideoPlayer()">&times;</span>
+                                        <h2 id="modal-video-title"></h2>
+                                        <iframe id="video-frame" width="560" height="315" frameborder="0"
+                                            allowfullscreen></iframe>
+
+                                        <div class="download-section">
+                                            <h3>Download Options</h3>
+                                            <div class="download-options">
+                                                <div class="format-select">
+                                                    <label for="download-format">Format:</label>
+                                                    <select id="download-format" onchange="toggleQualityOptions()">
+                                                        <option value="mp4">MP4 Video</option>
+                                                        <option value="mp3">MP3 Audio</option>
+                                                    </select>
+                                                </div>
+
+                                                <div class="quality-select">
+                                                    <label id="quality-label" for="download-quality">Quality:</label>
+                                                    <select id="download-quality">
+                                                        <option value="highest">Highest Quality</option>
+                                                        <option value="1080p">1080p</option>
+                                                        <option value="720p">720p</option>
+                                                        <option value="480p">480p</option>
+                                                        <option value="360p">360p</option>
+                                                        <option value="144p">144p</option>
+                                                    </select>
+                                                </div>
+
+                                                <button id="download-video-btn" class="download-btn"
+                                                    onclick="downloadVideo()">
+                                                    Download
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
